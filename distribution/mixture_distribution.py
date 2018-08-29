@@ -57,6 +57,24 @@ class MultiVariateGaussianMixture(object):
 
         return cls(vec_alpha, mat_mu, tensor_cov)
 
+    @classmethod
+    def to_tensor(cls, lst_of_tuple, normalize_alpha=False):
+        alpha = np.array([tup[0] for tup in lst_of_tuple])
+        if normalize_alpha:
+            alpha /= np.sum(alpha)
+        mu = np.stack(tup[1] for tup in lst_of_tuple)
+        cov = np.stack(tup[2] for tup in lst_of_tuple)
+
+        return alpha, mu, cov
+
+    @classmethod
+    def to_tuple(cls, vec_alpha, mat_mu, tensor_cov):
+        lst_ret = []
+        n_k = len(vec_alpha)
+        for k in range(n_k):
+            lst_ret.append((vec_alpha[k], mat_mu[k], tensor_cov[k]))
+
+        return lst_ret
 
     def density_plot(self, fig_and_ax=None, vis_range=None, n_mesh_bin=100, **kwargs):
         assert self._n_dim == 2, "visualization isn't available except 2-dimensional distribution."

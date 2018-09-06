@@ -169,16 +169,19 @@ class UniVariateGaussianMixture(object):
 
     def pdf(self, u: vector):
         if u.size == 1:
-            prob = np.sum(self._alpha * norm.pdf(self._normalize(u)))
+            # component-wise vectorization
+            prob = np.sum(self._alpha * norm.pdf(self._normalize(u))/self._std)
         else:
+            # sample-wise vectorization
             prob = np.zeros_like(u)
             for k in range(self._n_k):
                 vec_z = (u - self._mu[k]) / self._std[k]
-                prob += self._alpha[k] * norm.pdf(vec_z)
+                prob += self._alpha[k] * norm.pdf(vec_z) / self._std[k]
         return prob
 
     def logpdf(self, u: float):
-        v_ln_prob = self._ln_alpha + norm.logpdf(self._normalize(u))
+        # component-wise vectorization
+        v_ln_prob = self._ln_alpha + norm.logpdf(self._normalize(u)) - np.log(self._std)
         ln_prob = logsumexp(v_ln_prob)
         return ln_prob
 

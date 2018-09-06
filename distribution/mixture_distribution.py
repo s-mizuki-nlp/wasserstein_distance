@@ -138,11 +138,11 @@ class UniVariateGaussianMixture(object):
     def __init__(self, vec_alpha: vector, vec_mu: vector, vec_std: vector):
         self._n_k = len(vec_alpha)
         self._n_dim = 1
-        self._alpha = vec_alpha
+        self._alpha = vec_alpha.copy()
         self._ln_alpha = np.log(self._alpha)
-        self._mu = vec_mu
-        self._std = vec_std
-        self._cov = np.square(vec_std)
+        self._mu = vec_mu.copy()
+        self._std = vec_std.copy()
+        self._cov = np.square(self._std)
         self._emp_x = np.empty(0)
         self._emp_q = np.empty(0)
         self._validate()
@@ -177,16 +177,28 @@ class UniVariateGaussianMixture(object):
         return prob
 
     def pdf(self, u: vector):
-        if u.size == 1:
+        if isinstance(u, float) or isinstance(u, int):
             # component-wise vectorization
             prob = np.sum(self._alpha * norm.pdf(self._normalize(u))/self._std)
-        else:
+        elif isinstance(u, np.ndarray):
             # sample-wise vectorization
             prob = np.zeros_like(u)
             for k in range(self._n_k):
                 vec_z = (u - self._mu[k]) / self._std[k]
                 prob += self._alpha[k] * norm.pdf(vec_z) / self._std[k]
         return prob
+
+    def pdf_component(self, u: vector, k: int):
+        alpha_k = self._alpha[k]
+        mu_k = self._mu[k]
+        std_k = self._std[k]
+        return alpha_k * norm.pdf(u, mu_k, std_k)
+
+    def cdf_component(self, u: vector, k: int):
+        alpha_k = self._alpha[k]
+        mu_k = self._mu[k]
+        std_k = self._std[k]
+        return alpha_k * norm.cdf(u, mu_k, std_k)
 
     def logpdf(self, u: float):
         # component-wise vectorization

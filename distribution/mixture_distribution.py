@@ -143,6 +143,8 @@ class UniVariateGaussianMixture(object):
         self._mu = vec_mu
         self._std = vec_std
         self._cov = np.square(vec_std)
+        self._emp_x = np.empty(0)
+        self._emp_q = np.empty(0)
         self._validate()
 
     def _validate(self):
@@ -156,6 +158,13 @@ class UniVariateGaussianMixture(object):
 
     def _normalize(self, u: float):
         return (u - self._mu)/self._std
+
+    def _gen_empirical_sequence(self, n_sample):
+        self._emp_x = np.sort(self.random(size=n_sample))
+        # accurate
+        self._emp_q = self.cdf(self._emp_x)
+        # fast
+        # self._emp_q = np.arange(n_sample)/n_sample + 1. / (2*n_sample)
 
     def cdf(self, u: vector):
         if isinstance(u, float):
@@ -195,7 +204,7 @@ class UniVariateGaussianMixture(object):
         grad = np.sum( self._alpha/self._std * norm.pdf(self._normalize(u)) )
         return grad
 
-    def inv_cdf(self, q: float):
+    def _inv_cdf(self, q: float):
 
         x0_t = np.sum(self._alpha*self._mu)
         std_t_mean = np.sum(self._alpha*self._std)
@@ -213,3 +222,31 @@ class UniVariateGaussianMixture(object):
         a, b = x0_t-10.*std_t_mean, x0_t+10.*std_t_mean
         root = optimize.brenth(f=func, a=a, b=b, xtol=1e-5)
         return root
+
+    def inv_cdf(self, q: vector):
+        if isinstance(q, float) or isinstance(q, int):
+            return self._inv_cdf(q)
+        elif isinstance(q, np.ndarray):
+            return np.vectorize(self._inv_cdf)(q)
+        else:
+            raise NotImplementedError("unsupported input type.")
+
+    def inv_cdf_empirical(self, q: vector, n_approx=1000):
+        if self._emp_x.size != n_approx:
+            self._gen_empirical_sequence(n_sample=n_approx)
+        # return the interpolated empirical quantile values
+        return np.interp(q, xp=self._emp_q, fp=self._emp_x)
+
+    def random(self, size: int, shuffle=True):
+        """
+        generate random samples from the distribution.
+
+        :param size: number of samples
+        :param shuffle: randomly permute generated samples(DEFAULT:True)
+        :return: generated samples
+        """
+        vec_r_k = np.random.multinomial(n=size, pvals=self._alpha)
+        vec_r_x = np.concatenate([np.random.normal(loc=self._mu[k], scale=self._std[k], size=size_k) for k, size_k in enumerate(vec_r_k)])
+        if shuffle:
+            np.random.shuffle(vec_r_x)
+        return vec_r_x

@@ -2,8 +2,9 @@
 # -*- coding:utf-8 -*-
 
 import os, sys, io
+from typing import List, Union
 
-import os, sys, io
+import copy
 # from string import ascii_lowercase
 import numpy as np
 from operator import add, sub
@@ -14,33 +15,27 @@ class WordTo2DGaussian(object):
     __n_dim = 2
     __n_char = 4
 
-    def __init__(self):
+    def __init__(self, lst_mu: Union[List[float],np.ndarray], lst_var: Union[List[float],np.ndarray]):
 
-        self._n_char_vocab = {
-            "mu":5,
-            "op":2,
-            "cov":5
-        }
-        self._set_mu = self._init_mu(n_set=self.__n_dim, n_diff=self._n_char_vocab["mu"], mu_rng=[-1., 1.])
+        self._set_mu = self._init_mu(n_set=self.__n_dim, lst_mu_1d=lst_mu)
         self._op = [add, sub]
-        self._cov = self._init_cov(n_diff=self._n_char_vocab["cov"], scale_rng=[0.1, 0.5])
+        self._cov = self._init_cov(lst_var=lst_var)
 
-        self._n_char_vocab_tup = (self._n_char_vocab["mu"],)*self.__n_dim + (self._n_char_vocab["op"], self._n_char_vocab["cov"])
+        n_mu = len(lst_mu)
+        self._n_char_vocab_tup = (n_mu,)*self.__n_dim + (len(self._op), len(self._cov))
 
-    def _init_mu(self, n_set, n_diff, mu_rng):
+    def _init_mu(self, n_set, lst_mu_1d):
 
-        vec_mu_base = np.linspace(*mu_rng, n_diff)
-        #  mat_mu_base[i] = lst_mat_mu_[s=0][i]
-        mat_mu_base = np.vstack([vec_mu_base]*self.__n_dim).T
-        # create mu_[s=0,1,2,..n_set]
+        # replicate 1-D mu to n-D
+        mat_mu_base = np.tile(lst_mu_1d, (self.__n_dim, 1))
+        # create mu_[s=0,1,2,..n_set] by rotating base n-D mu
         delta_deg = 180 / n_set
-        arry_mat_mu = np.stack( gen_rotate_2Dmatrix(delta_deg*s).dot(mat_mu_base.T).T for s in range(n_set) )
+        arry_mat_mu = np.stack( gen_rotate_2Dmatrix(delta_deg*s).dot(mat_mu_base).T for s in range(n_set) )
 
         return arry_mat_mu
 
-    def _init_cov(self, n_diff, scale_rng):
-        vec_scale = np.linspace(*scale_rng, n_diff)
-        return np.stack(np.eye(self.__n_dim)*s for s in vec_scale)
+    def _init_cov(self, lst_var: List[float]):
+        return np.stack(np.eye(self.__n_dim)*var for var in lst_var)
 
     def _random_word_single(self):
         int_seq = [np.random.randint(low=0, high=n_v, size=1) for n_v in self._n_char_vocab_tup]
@@ -52,7 +47,7 @@ class WordTo2DGaussian(object):
         else:
             return [self._random_word_single() for n in range(size)]
 
-    def transform_to_gaussian(self, word :str):
+    def word_to_gaussian_mixture(self, word :str):
 
         lst_char_idx = [int(c) for c in list(word)]
         assert len(lst_char_idx) == self.__n_char, "character length must be %d." % self.__n_char
@@ -65,3 +60,52 @@ class WordTo2DGaussian(object):
         mu = op(mu_1, mu_2)
 
         return alpha, mu, cov
+
+    @property
+    def n_dim(self):
+        return self.__n_dim
+
+class WordToScalar(object):
+
+    def __init__(self, word_prefix :str, lst_scale :List[float]):
+        self._prefix = word_prefix
+        self._n_v = len(lst_scale)
+        self._scalar = copy.deepcopy(lst_scale)
+
+    def _random_word_single(self):
+        return self._prefix + str(np.random.randint(low=0, high=self._n_v))
+
+    def random_word(self, size: int=1) -> Union[str, List[str]]:
+        if size==1:
+            return self._random_word_single()
+        else:
+            return [self._random_word_single() for n in range(size)]
+
+    def word_to_scalar(self, word: str) -> float:
+        idx = int(word.replace(self._prefix, ""))
+        return self._scalar[idx]
+
+
+class WordToRotationMatrix(object):
+
+    def __init__(self, word_prefix :str, lst_rotation_degree :List[float]):
+        self._prefix = word_prefix
+        self._n_v = len(lst_rotation_degree)
+        self._rot = self._init_rot(lst_rotation_degree=lst_rotation_degree)
+
+    def _init_rot(self, lst_rotation_degree) -> np.ndarray:
+        delta_deg = 180 / len(lst_rotation_degree)
+        return np.stack(gen_rotate_2Dmatrix(delta_deg*deg) for deg in lst_rotation_degree)
+
+    def _random_word_single(self):
+        return self._prefix + str(np.random.randint(low=0, high=self._n_v))
+
+    def random_word(self, size: int=1) -> Union[str, List[str]]:
+        if size==1:
+            return self._random_word_single()
+        else:
+            return [self._random_word_single() for n in range(size)]
+
+    def word_to_rotation_matrix(self, word: str) -> np.ndarray:
+        idx = int(word.replace(self._prefix, ""))
+        return self._rot[idx]

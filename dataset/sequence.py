@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 
+from typing import List, Union
 import os, sys, io
 import numpy as np
 import pandas as pd
 import itertools
 from . import grammar_template
+from .word import WordTo2DGaussian, WordToScalar, WordToRotationMatrix
 
 class PCFG(object):
 
@@ -54,9 +56,6 @@ class PCFG(object):
             # flatten again
             lst_seq = list(itertools.chain.from_iterable(lst_seq))
 
-            # DEBUG
-            print("".join(lst_seq))
-
             # check if every non-terminal symbol has been expanded
             is_all_terminal = all([s in self.__terminal for s in lst_seq])
 
@@ -64,3 +63,100 @@ class PCFG(object):
                 break
 
         return lst_seq
+
+    @property
+    def terminal_symbol(self):
+        return self.__terminal
+
+
+class SentenceToGMM(PCFG):
+
+    __end_of_component = grammar_template.word
+    __dtype = np.float32
+
+    def __init__(self, lst_mu, lst_var, lst_scale, lst_rotation_degree):
+        super(SentenceToGMM, self).__init__()
+        self._to_word = {
+            "w":WordTo2DGaussian(lst_mu=lst_mu, lst_var=lst_var),
+            "s":WordToScalar(word_prefix="s", lst_scale=lst_scale),
+            "r":WordToRotationMatrix(word_prefix="r", lst_rotation_degree=lst_rotation_degree)
+        }
+        self._eoc = self.__end_of_component
+        self._n_dim = self._to_word["w"].n_dim
+
+        self._validate()
+
+    def _validate(self):
+        msg = "there is undefined symbol: %s"
+        for symbol in self._to_word.keys():
+            assert symbol in super(SentenceToGMM, self).terminal_symbol, msg % symbol
+
+        assert self._n_dim == 2, "currently it only supports 2-dimensional GMM."
+
+    def _count_mixture_component(self, lst_symbol):
+        return np.sum(s in self._eoc for s in lst_symbol)
+
+    def _symbol_to_word(self, lst_symbol: List[str]) -> List[str]:
+        lst_word = []
+        for s in lst_symbol:
+            word = self._to_word[s].random_word()
+            lst_word.append(word)
+        return lst_word
+
+    def random_sentence(self, component_min=0, component_max=np.inf):
+
+        while True:
+            lst_symbol = super(SentenceToGMM, self).random_sequence()
+            n_word = self._count_mixture_component(lst_symbol)
+            if n_word < component_min:
+                continue
+            if n_word > component_max:
+                continue
+            break
+
+        lst_word = self._symbol_to_word(lst_symbol)
+
+        return lst_symbol, lst_word
+
+    def _init_component(self):
+        scale = 1.0
+        rotation = np.eye(self._n_dim, dtype=self.__dtype)
+        return scale, rotation
+
+    def sentence_to_gaussian_mixture(self, lst_symbol, lst_word):
+
+        n_c = self._count_mixture_component(lst_symbol)
+        vec_alpha = np.zeros(n_c, dtype=self.__dtype)
+        mat_mu = np.zeros(shape=(n_c, self._n_dim), dtype=self.__dtype)
+        tensor_cov = np.zeros(shape=(n_c, self._n_dim, self._n_dim), dtype=self.__dtype)
+
+        # initialize
+        idx = 0
+        scale, rotation = self._init_component()
+        for symbol, word in zip(lst_symbol, lst_word):
+            word_class = self._to_word[symbol]
+
+            if symbol == "w":
+                # set up component
+                alpha, mu, cov = word_class.word_to_gaussian_mixture(word)
+                alpha = alpha*scale
+                mu = rotation.dot(mu)
+                vec_alpha[idx] = alpha
+                mat_mu[idx] = mu
+                tensor_cov[idx] = cov
+
+                # reset status
+                scale, rotation = self._init_component()
+                idx += 1
+            elif symbol == "s":
+                scale = scale * word_class.word_to_scalar(word)
+            elif symbol == "r":
+                rot_new = word_class.word_to_rotation_matrix(word)
+                rotation = rotation.dot(rot_new)
+            else:
+                raise NotImplementedError()
+
+        # normalize alpha
+        vec_alpha /= np.sum(vec_alpha)
+
+        return vec_alpha, mat_mu, tensor_cov

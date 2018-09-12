@@ -72,9 +72,8 @@ class PCFG(object):
 class SentenceToGMM(PCFG):
 
     __end_of_component = grammar_template.word
-    __dtype = np.float32
 
-    def __init__(self, lst_mu, lst_var, lst_scale, lst_rotation_degree):
+    def __init__(self, lst_mu, lst_var, lst_scale, lst_rotation_degree, dtype=np.float32):
         super(SentenceToGMM, self).__init__()
         self._to_word = {
             "w":WordTo2DGaussian(lst_mu=lst_mu, lst_var=lst_var),
@@ -83,6 +82,7 @@ class SentenceToGMM(PCFG):
         }
         self._eoc = self.__end_of_component
         self._n_dim = self._to_word["w"].n_dim
+        self._dtype = dtype
 
         self._validate()
 
@@ -120,15 +120,15 @@ class SentenceToGMM(PCFG):
 
     def _init_component(self):
         scale = 1.0
-        rotation = np.eye(self._n_dim, dtype=self.__dtype)
+        rotation = np.eye(self._n_dim, dtype=self._dtype)
         return scale, rotation
 
     def sentence_to_gaussian_mixture(self, lst_symbol, lst_word):
 
         n_c = self._count_mixture_component(lst_symbol)
-        vec_alpha = np.zeros(n_c, dtype=self.__dtype)
-        mat_mu = np.zeros(shape=(n_c, self._n_dim), dtype=self.__dtype)
-        tensor_cov = np.zeros(shape=(n_c, self._n_dim, self._n_dim), dtype=self.__dtype)
+        vec_alpha = np.zeros(n_c, dtype=self._dtype)
+        mat_mu = np.zeros(shape=(n_c, self._n_dim), dtype=self._dtype)
+        tensor_cov = np.zeros(shape=(n_c, self._n_dim, self._n_dim), dtype=self._dtype)
 
         # initialize
         idx = 0

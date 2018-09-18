@@ -3,6 +3,8 @@
 
 import os, sys, io
 from collections import Counter
+import warnings
+import pickle
 
 class Dictionary(object):
 
@@ -46,6 +48,19 @@ class Dictionary(object):
     @property
     def vocab(self):
         return self._token2id.keys()
+
+    def save(self, file_path: str):
+        if len(self._token2id) == 0:
+            warnings.warn("dictionary is empty. did you call `fit()` method?")
+        with io.open(file_path, mode="wb") as ofs:
+            pickle.dump(self, ofs)
+
+    @classmethod
+    def load(cls, file_path: str):
+        with io.open(file_path, mode="rb") as ifs:
+            obj = pickle.load(ifs)
+        obj.__class__ = cls
+        return obj
 
     def token(self, token: str) -> (int, int):
         return self._token_to_id(token), self._counter.get(token, 0)

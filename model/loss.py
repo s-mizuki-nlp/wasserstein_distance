@@ -32,7 +32,7 @@ class EmpiricalSlicedWassersteinDistance(_Loss):
 
         n_mb, n_dim = input.shape
 
-        # slicd wesserstein distance
+        # sliced wesserstein distance
         loss = torch.tensor(1., dtype=torch.float, requires_grad=True)
         for t in range(self._n_slice):
             t_theta = self._sample_circular(n_dim=n_dim)

@@ -8,7 +8,16 @@ from torch import nn
 class MultiDenseLayer(nn.Module):
 
     def __init__(self, n_dim_in, n_dim_out, n_dim_hidden, n_hidden, activation_function):
+        """
+        multi-layer dense neural network with artibrary activation function
+        output = Dense(iter(Activation(Dense())))(input)
 
+        :param n_dim_in: input dimension size
+        :param n_dim_out: output dimension size
+        :param n_dim_hidden: hidden layer dimension size
+        :param n_hidden: number of layers
+        :param activation_function: activation function. e.g. torch.relu
+        """
         super(MultiDenseLayer, self).__init__()
 
         self._n_hidden = n_hidden

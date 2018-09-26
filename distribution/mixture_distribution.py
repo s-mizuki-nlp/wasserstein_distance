@@ -15,13 +15,18 @@ tensor = np.ndarray
 
 class MultiVariateGaussianMixture(object):
 
-    def __init__(self, vec_alpha: vector, mat_mu: matrix, tensor_cov: tensor):
+    def __init__(self, vec_alpha: vector, mat_mu: matrix, tensor_cov: tensor = None, vec_std: vector = None):
         self._n_k = len(vec_alpha)
         self._n_dim = mat_mu.shape[1]
         self._alpha = vec_alpha
         self._ln_alpha = np.log(self._alpha)
         self._mu = mat_mu
-        self._cov = tensor_cov
+        if tensor_cov is not None:
+            self._cov = tensor_cov
+        elif vec_std is not None:
+            self._cov = np.stack([(std**2) * np.eye(self._n_dim) for std in vec_std])
+        else:
+            raise AttributeError("either `tensor_cov` or `vec_std` must be specified.")
         self._validate()
 
     def _validate(self):
@@ -75,6 +80,10 @@ class MultiVariateGaussianMixture(object):
             lst_ret.append((vec_alpha[k], mat_mu[k], tensor_cov[k]))
 
         return lst_ret
+
+    @property
+    def n_component(self):
+        return self._n_k
 
     def density_plot(self, fig_and_ax=None, vis_range=None, n_mesh_bin=100, **kwargs):
         assert self._n_dim == 2, "visualization isn't available except 2-dimensional distribution."
@@ -135,10 +144,12 @@ class MultiVariateGaussianMixture(object):
 
 class UniVariateGaussianMixture(object):
 
+    __eps = 1E-5
+
     def __init__(self, vec_alpha: vector, vec_mu: vector, vec_std: vector):
         self._n_k = len(vec_alpha)
         self._n_dim = 1
-        self._alpha = vec_alpha.copy()
+        self._alpha = vec_alpha.copy() - self.__eps
         self._ln_alpha = np.log(self._alpha)
         self._mu = vec_mu.copy()
         self._std = vec_std.copy()
@@ -165,6 +176,10 @@ class UniVariateGaussianMixture(object):
         self._emp_q = self.cdf(self._emp_x)
         # fast
         # self._emp_q = np.arange(n_sample)/n_sample + 1. / (2*n_sample)
+
+    @property
+    def n_component(self):
+        return self._n_k
 
     def cdf(self, u: vector):
         if isinstance(u, float):

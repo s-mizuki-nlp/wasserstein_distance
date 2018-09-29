@@ -4,6 +4,7 @@
 from typing import List, Any, Union
 import numpy as np
 import copy
+import torch
 
 def multiple_sort(key, *values, reverse=False):
     sorter = zip(*sorted(zip(key, *values), key=lambda tup: tup[0], reverse=reverse))
@@ -72,13 +73,18 @@ def pad_numpy_sequence(lst_array: List[np.ndarray], max_len: int = None, dim: in
 
     return ret
 
-def pack_padded_sequence(ndarray: np.ndarray, lst_seq_len: Union[List[int], np.ndarray], dim: int = 0) -> List[np.ndarray]:
+def pack_padded_sequence(packed_array: Union[np.ndarray, torch.Tensor], lst_seq_len: Union[List[int], np.ndarray], dim: int = 0) -> List[np.ndarray]:
     """
-    pack the fixed-size padded numpy array into the list of variable-size numpy array
+    pack the fixed-size padded numpy array or pytorch tensor into the list of variable-size numpy array
 
-    :param ndarray: fixed-size numpy array to be packed
+    :param packed_array: fixed-size numpy array to be packed
     :param lst_seq_len: list of the dimension size of each array
     :param dim: packing dimension. DEFAULT:0(=2nd dimension in fixed-size array)
     :return: list of the variable-size packed numpy array
     """
-    return [array.take(indices=range(seq_len), axis=dim) for array, seq_len in zip(ndarray, lst_seq_len)]
+    if isinstance(packed_array, torch.Tensor):
+        _packed_array = packed_array.data.numpy()
+    else:
+        _packed_array = packed_array
+
+    return [array.take(indices=range(seq_len), axis=dim) for array, seq_len in zip(_packed_array, lst_seq_len)]

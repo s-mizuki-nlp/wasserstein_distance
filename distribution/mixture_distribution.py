@@ -15,10 +15,12 @@ tensor = np.ndarray
 
 class MultiVariateGaussianMixture(object):
 
+    __EPS = 1E-5
+
     def __init__(self, vec_alpha: vector, mat_mu: matrix, tensor_cov: tensor = None, vec_std: vector = None):
         self._n_k = len(vec_alpha)
         self._n_dim = mat_mu.shape[1]
-        self._alpha = vec_alpha
+        self._alpha = vec_alpha - self.__EPS
         self._ln_alpha = np.log(self._alpha)
         self._mu = mat_mu
         if tensor_cov is not None:
@@ -39,6 +41,14 @@ class MultiVariateGaussianMixture(object):
         assert self._mu.shape[1] == self._n_dim, msg
         assert self._cov.shape[1] == self._n_dim, msg
         assert self._cov.shape[2] == self._n_dim, msg
+
+    @property
+    def n_component(self):
+        return self._n_k
+
+    @property
+    def n_dim(self):
+        return self._n_dim
 
     @classmethod
     def random_generation(cls, n_k: int, n_dim: int, covariance_type="spherical", mu_range=None, cov_range=None):

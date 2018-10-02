@@ -88,7 +88,7 @@ def config_train(dictionary: Dictionary) -> Dict[str, Any]:
         },
         "regularize":True,
         "optim": {
-            "n_epoch":10,
+            "n_epoch":30,
             "n_batch":n_batch,
             "optimizer":torch.optim.Adam,
             "lr":0.01,

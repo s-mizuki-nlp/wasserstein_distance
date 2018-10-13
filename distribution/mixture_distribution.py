@@ -8,6 +8,7 @@ from scipy.stats import multivariate_normal, norm
 from scipy.misc import logsumexp
 from scipy import optimize
 from matplotlib import pyplot as plt
+from .utility import top_k_set_greedy_search, gaussian_kernel, l2_distance
 
 vector = np.array
 matrix = np.ndarray
@@ -95,6 +96,18 @@ class MultiVariateGaussianMixture(object):
     def n_component(self):
         return self._n_k
 
+    @property
+    def alpha(self):
+        return self._alpha
+
+    @property
+    def mu(self):
+        return self._mu
+
+    @property
+    def cov(self):
+        return self._cov
+
     def density_plot(self, fig_and_ax=None, vis_range=None, n_mesh_bin=100, **kwargs):
         assert self._n_dim == 2, "visualization isn't available except 2-dimensional distribution."
 
@@ -151,6 +164,14 @@ class MultiVariateGaussianMixture(object):
         mu_t = self._mu.dot(vec_theta) # mu[k]^T.theta
         std_t = np.sqrt(vec_theta.dot(self._cov).dot(vec_theta)) # theta^T.cov[k].theta
         return UniVariateGaussianMixture(self._alpha, mu_t, std_t)
+
+    def top_k_mean(self, top_k: int):
+        vec_score = np.array([self.pdf(vec_mu) for vec_mu in self.mu])
+        vec_score /= np.sum(vec_score)
+        mat_sim = gaussian_kernel(mat_x=self.mu, distance_function=l2_distance, gamma=0.5)
+        lst_top_k = top_k_set_greedy_search(mat_sim=mat_sim, vec_score=vec_score, top_k=top_k)
+
+        return self.mu[lst_top_k]
 
 class UniVariateGaussianMixture(object):
 
